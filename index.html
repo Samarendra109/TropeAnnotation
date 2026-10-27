@@ -132,10 +132,10 @@
     border: 1px solid var(--line);
     border-radius: 8px;
     position: relative;
-    overflow: hidden;
+    flex-shrink: 0;
     padding-left: 6px;
   }
-  .done-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: #C0392B; }
+  .done-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; border-radius: 7px 0 0 7px; background: #C0392B; }
   .done-bar.done { background: var(--yes); }
   .trope.active { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
   .trope-head {
