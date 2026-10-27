@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movie trope annotation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EDF0F4;
+    --panel: #FFFFFF;
+    --ink: #1B2230;
+    --muted: #5E6878;
+    --line: #D3D9E2;
+    --focus: #2F5BD3;
+    --yes: #1D6F4E;
+    --yes-bg: #E1F2E9;
+    --no: #7A3434;
+    --no-bg: #F5E5E5;
+    --maybe: #4B4F9E;
+    --maybe-bg: #E7E8F7;
+    --warn: #8A5A00;
+    --warn-bg: #FFF3D6;
+    --hl: #FFE45C;
+    --hl-hover: #FFCF1A;
+    --serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .app {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+    gap: 20px;
+    max-width: 1280px;
+    height: 100%;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .app[hidden] { display: none; }
+
+  /* ---------- Loader / error screen ---------- */
+  .startup {
+    max-width: 560px;
+    margin: 12vh auto;
+    padding: 28px 32px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .startup h2 { font-family: var(--serif); font-weight: 600; font-size: 1.5rem; margin: 0 0 10px; }
+  .startup p { margin: 0 0 14px; color: var(--muted); }
+  .startup code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+  .startup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .startup-actions .btn { flex: 1; padding: 11px; }
+
+  /* ---------- Synopsis (left) ---------- */
+  .synopsis-panel {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-y: auto;
+  }
+  .mode-banner {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 12px 40px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .mode-banner.highlighting {
+    background: var(--hl);
+    border-bottom-color: #E5C93A;
+    color: var(--ink);
+  }
+  .synopsis-body { padding: 28px 40px 40px; }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 2.1rem;
+    line-height: 1.15;
+    margin: 0 0 20px;
+    max-width: 68ch;
+  }
+  .synopsis {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    max-width: 68ch;
+  }
+  .synopsis.highlighting ::selection { background: #FFF0A6; }
+  .synopsis mark {
+    background: var(--hl);
+    color: inherit;
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    cursor: pointer;
+  }
+  .synopsis mark:hover { background: var(--hl-hover); }
+
+  /* ---------- Tropes (right) ---------- */
+  .tropes-panel { display: flex; flex-direction: column; min-height: 0; }
+  .trope-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 2px 2px 12px;
+  }
+  .trope {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .trope.active { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+  .trope-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 14px 8px;
+    background: none;
+    border: 0;
+    border-radius: 8px 8px 0 0;
+    text-align: left;
+    cursor: pointer;
+  }
+  .trope-text { display: flex; flex-direction: column; gap: 2px; }
+  .trope-name { font-weight: 600; font-size: 1rem; }
+  .trope-def { color: var(--muted); font-size: 0.9rem; }
+  .status {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .status.yes { background: var(--yes-bg); color: var(--yes); }
+  .status.no { background: var(--no-bg); color: var(--no); }
+  .status.maybe { background: var(--maybe-bg); color: var(--maybe); }
+  .status.warn { background: var(--warn-bg); color: var(--warn); }
+
+  .more-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0 14px 10px;
+    padding: 3px 0;
+    background: none;
+    border: 0;
+    color: var(--focus);
+    font-size: 0.86rem;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .more-btn .chev { font-size: 0.7em; text-decoration: none; }
+  .more-body {
+    margin: 0 14px 12px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+  .more-body p { margin: 0 0 8px; }
+  .more-body p:last-child { margin-bottom: 0; }
+
+  .choices { display: flex; gap: 8px; padding: 0 14px 12px; }
+  .choice {
+    flex: 1;
+    padding: 7px 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .choice:hover { background: var(--bg); }
+  .choice.yes[aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: #fff; }
+  .choice.maybe[aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: #fff; }
+  .choice.no[aria-pressed="true"] { background: var(--no); border-color: var(--no); color: #fff; }
+
+  .evidence { border-top: 1px dashed var(--line); padding: 12px 14px 14px; font-size: 0.9rem; }
+  .evidence p { margin: 0 0 10px; }
+  .evidence-empty { color: var(--muted); }
+  .evidence ul { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .evidence li {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: #FFFBE0;
+    border-left: 3px solid var(--hl-hover);
+    border-radius: 4px;
+    font-family: var(--serif);
+    font-size: 0.95rem;
+  }
+  .link-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--focus);
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .evidence-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--focus); border-color: var(--focus); color: #fff; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .footer {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .progress-row { display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--muted); }
+  .bar { height: 6px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--yes); transition: width 0.25s ease; }
+  /* One button: "Take a break" while tropes are left, green "Submit" once all are done. */
+  #submit-btn { width: 100%; padding: 11px; }
+  #submit-btn.ready { background: var(--yes); border-color: var(--yes); color: #fff; }
+
+  @media (max-width: 860px) {
+    html, body { height: auto; }
+    .app { grid-template-columns: 1fr; height: auto; padding: 12px; }
+    .synopsis-panel { overflow: visible; }
+    .mode-banner, .synopsis-body { padding-left: 20px; padding-right: 20px; }
+    .trope-list { overflow: visible; }
+    .footer { position: sticky; bottom: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar > span { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="startup" id="startup">
+  <h2 id="startup-title">Movie trope annotation</h2>
+  <p id="startup-msg"></p>
+  <div class="startup-actions" id="startup-actions"></div>
+</div>
+
+<main class="app" id="app" hidden>
+  <section class="synopsis-panel" aria-label="Movie synopsis">
+    <div class="mode-banner" id="banner" aria-live="polite"></div>
+    <div class="synopsis-body">
+      <h1 id="movie-title"></h1>
+      <div class="synopsis" id="synopsis"></div>
+    </div>
+  </section>
+
+  <aside class="tropes-panel" aria-label="Tropes">
+    <div class="trope-list" id="trope-list"></div>
+    <div class="footer">
+      <div class="progress-row"><span id="progress-text"></span></div>
+      <div class="bar"><span id="progress-bar"></span></div>
+      <button class="btn" id="submit-btn" type="button">Take a break</button>
+    </div>
+  </aside>
+</main>
+
+<script>
+/* =========================================================
+   The annotator opens a study file (to start) or a saved progress file (to continue). Everything is saved by
+   downloading a JSON file: a progress file on a break, the final annotation on submit.
+   ========================================================= */
+let CONFIG = null;
+let TEXT = "";
+let startedAt = new Date().toISOString();
+// One entry per sitting; a break closes the current one, continuing opens a new one.
+let sessions = [{ start: startedAt, end: null }];
+let dirty = false; // unsaved changes since the last download
+
+const state = { active: 0, submitted: false, answers: {}, expanded: {} };
+
+const appEl = document.getElementById("app");
+const startupEl = document.getElementById("startup");
+const synEl = document.getElementById("synopsis");
+const listEl = document.getElementById("trope-list");
+const bannerEl = document.getElementById("banner");
+const submitBtn = document.getElementById("submit-btn");
+
+let lastSelection = null;
+let justAdded = false;
+
+/* ---------- small helpers ---------- */
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+function truncate(str, n) {
+  return str.length > n ? str.slice(0, n - 1).trimEnd() + "…" : str;
+}
+
+/* =========================================================
+   Loading and validating the study file
+   ========================================================= */
+function showStartup(title, msg, actions) {
+  document.getElementById("startup-title").textContent = title;
+  document.getElementById("startup-msg").textContent = msg;
+  const box = document.getElementById("startup-actions");
+  box.textContent = "";
+  (actions || []).forEach(a => box.append(a));
+  startupEl.hidden = false;
+  appEl.hidden = true;
+}
+
+function validate(data) {
+  const problems = [];
+  if (!data || typeof data !== "object") return ["The file is not a JSON object."];
+  if (typeof data.movieTitle !== "string" || !data.movieTitle.trim()) problems.push("movieTitle is missing.");
+  if (typeof data.synopsis !== "string" || !data.synopsis.trim()) problems.push("synopsis is missing.");
+  if (!Array.isArray(data.tropes) || data.tropes.length === 0) {
+    problems.push("tropes must be a non-empty list.");
+  } else {
+    const seen = new Set();
+    data.tropes.forEach((t, i) => {
+      const where = `tropes[${i}]`;
+      if (!t || typeof t !== "object") { problems.push(`${where} is not an object.`); return; }
+      if (!t.id) problems.push(`${where} has no id.`);
+      else if (seen.has(t.id)) problems.push(`Duplicate trope id "${t.id}".`);
+      else seen.add(t.id);
+      if (!t.name) problems.push(`${where} has no name.`);
+      if (!t.definition) problems.push(`${where} has no definition.`);
+    });
+  }
+  return problems;
+}
+
+function paragraphsOf(value) {
+  if (Array.isArray(value)) return value.map(String).filter(s => s.trim());
+  if (typeof value === "string") return value.trim().split(/\n\s*\n/).filter(s => s.trim());
+  return [];
+}
+
+function start(data) {
+  const problems = validate(data);
+  if (problems.length) {
+    showStartup("The study file has a problem", problems.join(" "), [openButton()]);
+    return;
+  }
+  CONFIG = {
+    movieTitle: data.movieTitle,
+    synopsis: data.synopsis,
+    tropes: data.tropes
+  };
+  TEXT = CONFIG.synopsis.trim();
+  state.active = 0;
+  state.answers = Object.fromEntries(CONFIG.tropes.map(t => [t.id, {
+    answer: null, spans: [], firstAnsweredAt: null, updatedAt: null
+  }]));
+  state.expanded = {};
+  startupEl.hidden = true;
+  appEl.hidden = false;
+  document.getElementById("movie-title").textContent = CONFIG.movieTitle;
+  document.title = CONFIG.movieTitle + " – trope annotation";
+  render();
+}
+
+function pickFile(onData) {
+  const input = el("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.addEventListener("change", () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data;
+      try { data = JSON.parse(reader.result); }
+      catch (err) { alert("That file could not be read: it is not valid JSON (" + err.message + ")."); return; }
+      onData(data);
+    };
+    reader.readAsText(file);
+  });
+  input.click();
+}
+
+// Landing page: one button; the page tells a study file from a saved progress file by itself.
+function openButton() {
+  const open = el("button", "btn primary", "Open file");
+  open.type = "button";
+  open.onclick = () => pickFile(openFile);
+  return open;
+}
+function showLanding() {
+  showStartup("Movie trope annotation",
+    "Open a study file to start, or the progress file you saved during a break to continue where you left off.",
+    [openButton()]);
+}
+
+/* =========================================================
+   Saving and resuming (break button, download on submit)
+   ========================================================= */
+const PROGRESS_KIND = "trope-annotation-progress";
+
+function download(obj, name) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const a = el("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function fileName(kind) {
+  const title = CONFIG.movieTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  return `${title}_${kind}_${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+}
+function closeSession() {
+  const s = sessions[sessions.length - 1];
+  if (!s.end) s.end = new Date().toISOString();
+}
+
+function progressFile() {
+  return {
+    kind: PROGRESS_KIND,
+    version: 1,
+    savedAt: new Date().toISOString(),
+    study: { movieTitle: CONFIG.movieTitle, synopsis: CONFIG.synopsis, tropes: CONFIG.tropes },
+    progress: { startedAt, sessions, active: state.active, answers: state.answers, expanded: state.expanded }
+  };
+}
+
+// A picked file is either a study file or a saved progress file.
+function openFile(data) {
+  if (data && data.kind === PROGRESS_KIND) resume(data);
+  else start(data);
+}
+
+function resume(data) {
+  if (!data.study || !data.progress) {
+    alert("This progress file is incomplete and cannot be loaded.");
+    return;
+  }
+  if (CONFIG) {
+    const ids = CONFIG.tropes.map(t => t.id).sort().join("|");
+    const savedIds = data.study.tropes.map(t => t.id).sort().join("|");
+    if (data.study.movieTitle !== CONFIG.movieTitle || ids !== savedIds) {
+      alert("This progress file belongs to a different study (" + data.study.movieTitle + ").");
+      return;
+    }
+    const answered = Object.values(state.answers).some(a => a.answer);
+    if (answered && !confirm("Replace your current answers with the saved ones?")) return;
+  } else {
+    start(data.study);
+    if (!CONFIG) return;
+  }
+  const p = data.progress;
+  CONFIG.tropes.forEach(t => { if (p.answers[t.id]) state.answers[t.id] = p.answers[t.id]; });
+  state.expanded = p.expanded || {};
+  state.active = Math.min(p.active || 0, CONFIG.tropes.length - 1);
+  startedAt = p.startedAt || startedAt;
+  sessions = [...(p.sessions || []), { start: new Date().toISOString(), end: null }];
+  dirty = false;
+  startupEl.hidden = true;
+  appEl.hidden = false;
+  render(true);
+}
+
+function takeBreak() {
+  closeSession();
+  const name = fileName("progress");
+  download(progressFile(), name);
+  dirty = false;
+  const cont = el("button", "btn primary", "Continue now");
+  cont.type = "button";
+  cont.onclick = () => {
+    sessions.push({ start: new Date().toISOString(), end: null });
+    startupEl.hidden = true;
+    appEl.hidden = false;
+    render(true);
+  };
+  showStartup("Progress saved",
+    `Your answers so far were downloaded as ${name}. You can close this page now. To continue later, open the page ` +
+    `again and open that file.`, [cont]);
+}
+
+/* =========================================================
+   State
+   ========================================================= */
+const activeTrope = () => CONFIG.tropes[state.active];
+const activeAnswer = () => activeTrope() ? state.answers[activeTrope().id] : null;
+// Highlighting is on for Yes (required) and Maybe (optional).
+const isHighlighting = () => ["yes", "maybe"].includes(activeAnswer()?.answer);
+const isDone = t => {
+  const a = state.answers[t.id];
+  return a.answer === "no" || a.answer === "maybe" || (a.answer === "yes" && a.spans.length > 0);
+};
+function touch(a) {
+  const now = new Date().toISOString();
+  if (!a.firstAnsweredAt) a.firstAnsweredAt = now;
+  a.updatedAt = now;
+  dirty = true;
+}
+function mergeSpans(spans) {
+  const sorted = spans.slice().sort((x, y) => x[0] - y[0]);
+  const out = [];
+  for (const [s, e] of sorted) {
+    const last = out[out.length - 1];
+    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+    else out.push([s, e]);
+  }
+  return out;
+}
+
+/* ---------- selection → character offsets ---------- */
+function offsetOf(node, off) {
+  const r = document.createRange();
+  r.selectNodeContents(synEl);
+  r.setEnd(node, off);
+  return r.toString().length;
+}
+function readSelection() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0);
+  if (!synEl.contains(r.startContainer) || !synEl.contains(r.endContainer)) return null;
+  let s = offsetOf(r.startContainer, r.startOffset);
+  let e = offsetOf(r.endContainer, r.endOffset);
+  while (s < e && /\s/.test(TEXT[s])) s++;
+  while (e > s && /\s/.test(TEXT[e - 1])) e--;
+  while (s > 0 && /\w/.test(TEXT[s - 1]) && /\w/.test(TEXT[s])) s--;
+  while (e < TEXT.length && /\w/.test(TEXT[e]) && /\w/.test(TEXT[e - 1])) e++;
+  return e - s >= 2 ? { s, e } : null;
+}
+function addSpan(range) {
+  const a = activeAnswer();
+  if (!range || !a || !isHighlighting()) return false;
+  a.spans = mergeSpans([...a.spans, [range.s, range.e]]);
+  touch(a);
+  window.getSelection().removeAllRanges();
+  lastSelection = null;
+  render();
+  return true;
+}
+function removeSpan(i) {
+  const a = activeAnswer();
+  a.spans.splice(i, 1);
+  touch(a);
+  render();
+}
+
+document.addEventListener("mouseup", () => {
+  if (!CONFIG || !isHighlighting()) return;
+  if (addSpan(readSelection())) {
+    justAdded = true;
+    setTimeout(() => { justAdded = false; }, 0);
+  }
+});
+document.addEventListener("selectionchange", () => {
+  if (!CONFIG || !isHighlighting()) return;
+  const r = readSelection();
+  if (r) lastSelection = r;
+  const btn = document.getElementById("add-selection");
+  if (btn) btn.disabled = !r;
+});
+synEl.addEventListener("click", e => {
+  if (justAdded) return;
+  const m = e.target.closest("mark");
+  if (m) removeSpan(Number(m.dataset.i));
+});
+
+/* ---------- answering ---------- */
+function setAnswer(i, val) {
+  state.active = i;
+  const a = state.answers[CONFIG.tropes[i].id];
+  a.answer = val;
+  if (val === "no") a.spans = [];
+  touch(a);
+  render();
+  if (val === "no") setTimeout(goNext, 250);
+}
+function goNext() {
+  const n = CONFIG.tropes.length;
+  for (let k = 1; k <= n; k++) {
+    const j = (state.active + k) % n;
+    if (!isDone(CONFIG.tropes[j])) { state.active = j; render(true); return; }
+  }
+  render();
+}
+
+/* =========================================================
+   Rendering
+   ========================================================= */
+function renderSynopsis() {
+  const spans = isHighlighting() ? activeAnswer().spans : [];
+  synEl.textContent = "";
+  synEl.classList.toggle("highlighting", isHighlighting());
+  let pos = 0;
+  spans.forEach(([s, e], i) => {
+    if (s > pos) synEl.append(TEXT.slice(pos, s));
+    const m = el("mark", null, TEXT.slice(s, e));
+    m.dataset.i = i;
+    m.title = "Click to remove this highlight";
+    synEl.append(m);
+    pos = e;
+  });
+  synEl.append(TEXT.slice(pos));
+
+  if (isHighlighting()) {
+    bannerEl.className = "mode-banner highlighting";
+    bannerEl.textContent = activeAnswer().answer === "maybe"
+      ? `Optional: select text that might show “${activeTrope().name}”. Click a highlight to remove it.`
+      : `Select text that shows “${activeTrope().name}”. Click a highlight to remove it.`;
+  } else {
+    bannerEl.className = "mode-banner";
+    bannerEl.textContent = "Read the synopsis, then decide whether each trope on the right appears in this movie.";
+  }
+}
+
+function statusFor(a) {
+  const n = a.spans.length;
+  const hl = n ? `, ${n} highlight${n > 1 ? "s" : ""}` : "";
+  if (a.answer === "no") return ["no", "No"];
+  if (a.answer === "maybe") return ["maybe", "Maybe" + hl];
+  if (a.answer === "yes" && n) return ["yes", "Yes" + hl];
+  if (a.answer === "yes") return ["warn", "Needs evidence"];
+  return ["", "Not answered"];
+}
+
+function evidencePanel(a) {
+  const maybe = a.answer === "maybe";
+  const p = el("div", "evidence");
+  p.append(el("p", null, maybe
+    ? "Optional: highlight the passage(s) that might show this trope."
+    : "Highlight the passage(s) in the synopsis that show this trope. You can add more than one."));
+  if (a.spans.length) {
+    const ul = el("ul");
+    a.spans.forEach(([s, e], i) => {
+      const li = el("li");
+      li.append(el("span", null, "“" + truncate(TEXT.slice(s, e), 110) + "”"));
+      const rm = el("button", "link-btn", "Remove");
+      rm.type = "button";
+      rm.dataset.key = "rm-" + i;
+      rm.onclick = () => removeSpan(i);
+      li.append(rm);
+      ul.append(li);
+    });
+    p.append(ul);
+  } else {
+    p.append(el("p", "evidence-empty", "No text highlighted yet."));
+  }
+  const actions = el("div", "evidence-actions");
+  const add = el("button", "btn", "Add selected text");
+  add.type = "button";
+  add.id = "add-selection";
+  add.dataset.key = "add";
+  add.disabled = !lastSelection;
+  add.onclick = () => addSpan(lastSelection);
+  const next = el("button", "btn primary", "Next trope");
+  next.type = "button";
+  next.dataset.key = "next";
+  next.disabled = !maybe && a.spans.length === 0;
+  next.onclick = goNext;
+  actions.append(add, next);
+  p.append(actions);
+  return p;
+}
+
+function renderTropes(scrollToActive) {
+  const focusKey = document.activeElement?.dataset?.key;
+  listEl.textContent = "";
+  CONFIG.tropes.forEach((t, i) => {
+    const a = state.answers[t.id];
+    const active = i === state.active;
+    const card = el("div", "trope" + (active ? " active" : ""));
+
+    const head = el("button", "trope-head");
+    head.type = "button";
+    head.dataset.key = "head-" + i;
+    head.setAttribute("aria-current", active ? "true" : "false");
+    head.onclick = () => { state.active = i; render(); };
+    const text = el("span", "trope-text");
+    text.append(el("span", "trope-name", t.name), el("span", "trope-def", t.definition));
+    const [cls, label] = statusFor(a);
+    head.append(text, el("span", "status " + cls, label));
+    card.append(head);
+
+    // Expandable definition
+    const paras = paragraphsOf(t.expandedDefinition);
+    if (paras.length) {
+      const open = !!state.expanded[t.id];
+      const bodyId = "more-" + t.id;
+      const more = el("button", "more-btn");
+      more.type = "button";
+      more.dataset.key = "more-" + i;
+      more.setAttribute("aria-expanded", String(open));
+      more.setAttribute("aria-controls", bodyId);
+      more.append(el("span", "chev", open ? "▾" : "▸"), el("span", null, open ? "Hide details" : "Show details"));
+      more.onclick = () => { state.expanded[t.id] = !open; render(); };
+      card.append(more);
+      if (open) {
+        const body = el("div", "more-body");
+        body.id = bodyId;
+        paras.forEach(p => body.append(el("p", null, p)));
+        card.append(body);
+      }
+    }
+
+    const choices = el("div", "choices");
+    choices.setAttribute("role", "group");
+    choices.setAttribute("aria-label", `Does “${t.name}” appear in this movie?`);
+    [["yes", "Yes"], ["maybe", "Maybe"], ["no", "No"]].forEach(([v, lbl]) => {
+      const b = el("button", "choice " + v, lbl);
+      b.type = "button";
+      b.dataset.key = v + "-" + i;
+      b.setAttribute("aria-pressed", a.answer === v ? "true" : "false");
+      b.onclick = () => setAnswer(i, v);
+      choices.append(b);
+    });
+    card.append(choices);
+
+    if (active && (a.answer === "yes" || a.answer === "maybe")) card.append(evidencePanel(a));
+    listEl.append(card);
+  });
+
+  if (focusKey) listEl.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+  if (scrollToActive) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    listEl.querySelector(".trope.active")?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+  }
+}
+
+function renderFooter() {
+  const done = CONFIG.tropes.filter(isDone).length;
+  const total = CONFIG.tropes.length;
+  document.getElementById("progress-text").textContent = `${done} of ${total} tropes done`;
+  document.getElementById("progress-bar").style.width = (done / total * 100) + "%";
+  const ready = done === total;
+  submitBtn.textContent = ready ? "Submit" : `Take a break (${total - done} left)`;
+  submitBtn.classList.toggle("ready", ready);
+  submitBtn.disabled = state.submitted;
+}
+
+function render(scrollToActive) {
+  renderSynopsis();
+  renderTropes(scrollToActive);
+  renderFooter();
+}
+
+/* =========================================================
+   Submission
+   ========================================================= */
+function buildPayload() {
+  return {
+    movieTitle: CONFIG.movieTitle,
+    startedAt,
+    submittedAt: new Date().toISOString(),
+    sessions,
+    userAgent: navigator.userAgent,
+    responses: CONFIG.tropes.map(t => {
+      const a = state.answers[t.id];
+      return {
+        tropeId: t.id,
+        tropeName: t.name,
+        answer: a.answer,
+        expandedDefinitionOpened: !!state.expanded[t.id],
+        evidence: a.spans.map(([s, e]) => ({ start: s, end: e, text: TEXT.slice(s, e) })),
+        firstAnsweredAt: a.firstAnsweredAt,
+        updatedAt: a.updatedAt
+      };
+    })
+  };
+}
+
+submitBtn.addEventListener("click", () => {
+  const left = CONFIG.tropes.filter(t => !isDone(t)).length;
+  if (left > 0) {
+    const msg = `You still have ${left} trope${left > 1 ? "s" : ""} left. Save your progress and take a break?`;
+    if (confirm(msg)) takeBreak();
+    return;
+  }
+  closeSession();
+  const name = fileName("annotation");
+  download(buildPayload(), name);
+  dirty = false;
+  state.submitted = true;
+  showStartup("Annotation submitted",
+    `Your answers were downloaded as ${name}. Please send that file back. You can close this page now.`);
+});
+
+window.addEventListener("beforeunload", e => {
+  if (!CONFIG || state.submitted || !dirty) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
+
+showLanding();
+</script>
+</body>
+</html>
