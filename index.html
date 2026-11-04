@@ -25,9 +25,36 @@
     --warn-bg: #FFF3D6;
     --hl: #FFE45C;
     --hl-hover: #FFCF1A;
+    --hl-line: #E5C93A;
+    --select: #FFF0A6;
+    --ev-bg: #FFFBE0;
+    --todo: #C0392B;
+    --on-solid: #FFFFFF;
+    color-scheme: light;
     --serif: "Newsreader", Georgia, "Times New Roman", serif;
     --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
+  /* ---------- Night mode: follows the system unless the toggle sets data-theme ---------- */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161D; --panel: #1B2029; --ink: #E3E7EE; --muted: #9AA4B4; --line: #2E3542; --focus: #7C9CF5;
+      --yes: #3E9E74; --yes-bg: #173327; --no: #C46A6A; --no-bg: #3A1F22; --maybe: #8C90E0; --maybe-bg: #25274A;
+      --warn: #E0B04F; --warn-bg: #3A2E12; --hl: #6B5A12; --hl-hover: #8A7418; --hl-line: #8A7418;
+      --select: #5A4C14; --ev-bg: #2A2614; --todo: #D0574A; --on-solid: #FFFFFF; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161D; --panel: #1B2029; --ink: #E3E7EE; --muted: #9AA4B4; --line: #2E3542; --focus: #7C9CF5;
+    --yes: #3E9E74; --yes-bg: #173327; --no: #C46A6A; --no-bg: #3A1F22; --maybe: #8C90E0; --maybe-bg: #25274A;
+    --warn: #E0B04F; --warn-bg: #3A2E12; --hl: #6B5A12; --hl-hover: #8A7418; --hl-line: #8A7418;
+    --select: #5A4C14; --ev-bg: #2A2614; --todo: #D0574A; --on-solid: #FFFFFF; color-scheme: dark;
+  }
+  .theme-toggle {
+    position: fixed; top: 10px; right: 12px; z-index: 10;
+    padding: 5px 10px; font-size: 0.82rem; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer;
+  }
+  .theme-toggle:hover { color: var(--ink); }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body {
@@ -47,7 +74,7 @@
     max-width: 1280px;
     height: 100%;
     margin: 0 auto;
-    padding: 20px;
+    padding: 46px 20px 20px;   /* top room for the night-mode toggle */
   }
   .app[hidden] { display: none; }
 
@@ -86,7 +113,7 @@
   }
   .mode-banner.highlighting {
     background: var(--hl);
-    border-bottom-color: #E5C93A;
+    border-bottom-color: var(--hl-line);
     color: var(--ink);
   }
   .synopsis-body { padding: 28px 40px 40px; }
@@ -105,7 +132,7 @@
     white-space: pre-wrap;
     max-width: 68ch;
   }
-  .synopsis.highlighting ::selection { background: #FFF0A6; }
+  .synopsis.highlighting ::selection { background: var(--select); }
   .synopsis mark {
     background: var(--hl);
     color: inherit;
@@ -135,7 +162,7 @@
     flex-shrink: 0;
     padding-left: 6px;
   }
-  .done-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; border-radius: 7px 0 0 7px; background: #C0392B; }
+  .done-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; border-radius: 7px 0 0 7px; background: var(--todo); }
   .done-bar.done { background: var(--yes); }
   .trope.active { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
   .trope-head {
@@ -205,9 +232,9 @@
     cursor: pointer;
   }
   .choice:hover { background: var(--bg); }
-  .choice.yes[aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: #fff; }
-  .choice.maybe[aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: #fff; }
-  .choice.no[aria-pressed="true"] { background: var(--no); border-color: var(--no); color: #fff; }
+  .choice.yes[aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: var(--on-solid); }
+  .choice.maybe[aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: var(--on-solid); }
+  .choice.no[aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--on-solid); }
 
   .evidence { border-top: 1px dashed var(--line); padding: 12px 14px 14px; font-size: 0.9rem; }
   .evidence p { margin: 0 0 10px; }
@@ -219,7 +246,7 @@
     align-items: flex-start;
     justify-content: space-between;
     padding: 6px 8px;
-    background: #FFFBE0;
+    background: var(--ev-bg);
     border-left: 3px solid var(--hl-hover);
     border-radius: 4px;
     font-family: var(--serif);
@@ -246,7 +273,7 @@
     font-weight: 500;
     cursor: pointer;
   }
-  .btn.primary { background: var(--focus); border-color: var(--focus); color: #fff; }
+  .btn.primary { background: var(--focus); border-color: var(--focus); color: var(--on-solid); }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .footer {
@@ -263,11 +290,11 @@
   .bar > span { display: block; height: 100%; width: 0; background: var(--yes); transition: width 0.25s ease; }
   /* One button: "Take a break" while tropes are left, green "Submit" once all are done. */
   #submit-btn { width: 100%; padding: 11px; }
-  #submit-btn.ready { background: var(--yes); border-color: var(--yes); color: #fff; }
+  #submit-btn.ready { background: var(--yes); border-color: var(--yes); color: var(--on-solid); }
 
   @media (max-width: 860px) {
     html, body { height: auto; }
-    .app { grid-template-columns: 1fr; height: auto; padding: 12px; }
+    .app { grid-template-columns: 1fr; height: auto; padding: 44px 12px 12px; }
     .synopsis-panel { overflow: visible; }
     .mode-banner, .synopsis-body { padding-left: 20px; padding-right: 20px; }
     .trope-list { overflow: visible; }
@@ -279,6 +306,28 @@
 </style>
 </head>
 <body>
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch light/night mode"></button>
+<script>
+(function () {
+  var root = document.documentElement, btn = document.getElementById("theme-toggle");
+  var saved = null;
+  try { saved = localStorage.getItem("trope-annotation-theme"); } catch (e) {}
+  if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
+  function current() {
+    var t = root.getAttribute("data-theme");
+    if (t) return t;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function label() { btn.textContent = current() === "dark" ? "☀ Day" : "☾ Night"; }
+  btn.addEventListener("click", function () {
+    var next = current() === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("trope-annotation-theme", next); } catch (e) {}
+    label();
+  });
+  label();
+})();
+</script>
 
 <div class="startup" id="startup">
   <h2 id="startup-title">Movie trope annotation</h2>
