@@ -416,7 +416,7 @@ let dirty = false; // unsaved changes since the last download
 
 const state = { active: 0, submitted: false, answers: {}, expanded: {} };
 
-// 1-5 scale (user 2026-11-09). Evidence highlighting is required for 3, 4 and 5.
+// 1-5 scale (user 2026-11-09). Evidence highlighting is required for 3, 4 and 5; optional for 2 (user 2026-11-10).
 const SCALE = [
   [1, "Not present", "The trope is not present in the movie."],
   [2, "Probably not", "The trope is probably not present in the movie."],
@@ -424,7 +424,8 @@ const SCALE = [
   [4, "Largely important", "The trope is present and largely important for the story."],
   [5, "Very important", "The trope is present and very important: the story is built on it."]
 ];
-const NEEDS_EVIDENCE = 3;
+const NEEDS_EVIDENCE = 3;   // evidence required from this score up
+const ALLOWS_EVIDENCE = 2;  // evidence possible (optional below NEEDS_EVIDENCE) from this score up
 
 const appEl = document.getElementById("app");
 const startupEl = document.getElementById("startup");
@@ -648,8 +649,8 @@ function takeBreak() {
    ========================================================= */
 const activeTrope = () => CONFIG.tropes[state.active];
 const activeAnswer = () => activeTrope() ? state.answers[activeTrope().id] : null;
-// Highlighting is on (and required) for scores 3-5.
-const isHighlighting = () => (activeAnswer()?.score || 0) >= NEEDS_EVIDENCE;
+// Highlighting is on for scores 2-5 (optional for 2, required for 3-5).
+const isHighlighting = () => (activeAnswer()?.score || 0) >= ALLOWS_EVIDENCE;
 // complete = a score, plus evidence for 3-5 (A8a: only a complete trope can be ticked).
 const isComplete = t => {
   const a = state.answers[t.id];
@@ -737,7 +738,7 @@ function setScore(i, val) {
   state.active = i;
   const a = state.answers[CONFIG.tropes[i].id];
   a.score = val;
-  if (val < NEEDS_EVIDENCE) a.spans = [];
+  if (val < ALLOWS_EVIDENCE) a.spans = [];   // score 1 clears highlights; 2 keeps them (optional)
   touch(a);
   render(true);   // A8d: no auto-jump; the trope stays until it is ticked
 }
@@ -777,7 +778,9 @@ function renderSynopsis() {
 
   if (isHighlighting()) {
     bannerEl.className = "mode-banner highlighting";
-    bannerEl.textContent = `Select text that shows “${activeTrope().name}”. Click a highlight to remove it.`;
+    bannerEl.textContent = activeAnswer().score < NEEDS_EVIDENCE
+      ? `Optional: select text that hints at “${activeTrope().name}”. Click a highlight to remove it.`
+      : `Select text that shows “${activeTrope().name}”. Click a highlight to remove it.`;
   } else {
     bannerEl.className = "mode-banner";
     bannerEl.textContent = "Read the synopsis, then rate each trope on the right from 5 (very important to the story) to 1 " +
@@ -795,7 +798,9 @@ function statusFor(a) {
 
 function evidencePanel(a) {
   const p = el("div", "evidence");
-  p.append(el("p", null, "Highlight the passage(s) in the synopsis that show this trope. You can add more than one."));
+  p.append(el("p", null, a.score < NEEDS_EVIDENCE
+    ? "Optional: highlight the passage(s) that made you think the trope might be there. You can add more than one, or none."
+    : "Highlight the passage(s) in the synopsis that show this trope. You can add more than one."));
   if (a.spans.length) {
     const ul = el("ul");
     a.spans.forEach(([s, e], i) => {
@@ -822,7 +827,7 @@ function evidencePanel(a) {
   const next = el("button", "btn primary", "Next trope");
   next.type = "button";
   next.dataset.key = "next";
-  next.disabled = a.spans.length === 0;
+  next.disabled = a.score >= NEEDS_EVIDENCE && a.spans.length === 0;   // optional for 2
   next.onclick = goNext;
   actions.append(add, next);
   p.append(actions);
@@ -855,7 +860,7 @@ function renderTropes(scrollToActive) {
   const hp = document.getElementById("head-pending");
   hp.textContent = "";
   hp.append(el("span", null, `${openBox === "pending" ? "▾" : "▸"} Pending (${pending.length})`),
-            el("span", "hint", "rate, add evidence for 3-5, then tick"));
+            el("span", "hint", "rate, add evidence for 3-5 (optional for 2), then tick"));
   hp.setAttribute("aria-expanded", String(openBox === "pending"));
   document.getElementById("box-rated").classList.toggle("open", openBox === "rated");
   document.getElementById("box-pending").classList.toggle("open", openBox === "pending");
@@ -946,7 +951,7 @@ function card(i) {
     });
     cardEl.append(choices);
 
-    if (active && a.score >= NEEDS_EVIDENCE) cardEl.append(evidencePanel(a));
+    if (active && a.score >= ALLOWS_EVIDENCE) cardEl.append(evidencePanel(a));
     return cardEl;
 }
 
