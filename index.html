@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Movie trope annotation</title>
+<title>Trope rating</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -195,6 +195,9 @@
   .status.no { background: var(--no-bg); color: var(--no); }
   .status.maybe { background: var(--maybe-bg); color: var(--maybe); }
   .status.warn { background: var(--warn-bg); color: var(--warn); }
+  .status.s1, .status.s2 { background: var(--no-bg); color: var(--no); }
+  .status.s3 { background: var(--maybe-bg); color: var(--maybe); }
+  .status.s4, .status.s5 { background: var(--yes-bg); color: var(--yes); }
 
   .more-btn {
     display: inline-flex;
@@ -221,10 +224,10 @@
   .more-body p { margin: 0 0 8px; }
   .more-body p:last-child { margin-bottom: 0; }
 
-  .choices { display: flex; gap: 8px; padding: 0 14px 12px; }
+  .choices { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 0 14px 12px; }
   .choice {
-    flex: 1;
-    padding: 7px 0;
+    padding: 5px 2px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.15;
     border: 1px solid var(--line);
     border-radius: 6px;
     background: var(--panel);
@@ -232,9 +235,46 @@
     cursor: pointer;
   }
   .choice:hover { background: var(--bg); }
-  .choice.yes[aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: var(--on-solid); }
-  .choice.maybe[aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: var(--on-solid); }
-  .choice.no[aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--on-solid); }
+  .choice .num { font-size: 1.05rem; font-weight: 600; }
+  .choice .cap { font-size: 0.68rem; font-weight: 400; color: var(--muted); }
+  .choice[aria-pressed="true"] .cap { color: inherit; }
+  .choice.s1[aria-pressed="true"], .choice.s2[aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--on-solid); }
+  .choice.s3[aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: var(--on-solid); }
+  .choice.s4[aria-pressed="true"], .choice.s5[aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: var(--on-solid); }
+  .block-head-unused {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin: 6px 2px 0; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .block-head:first-child { margin-top: 0; }
+  .block-head .hint { font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .block-empty { padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 0.86rem; }
+  .group-label { margin: 2px 2px -2px; font-size: 0.78rem; color: var(--muted); }
+  .scale-key {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+    font-size: 0.82rem; color: var(--muted); flex-shrink: 0;
+  }
+  /* Rated / Pending boxes: headers always visible, only the open box shows its list (own scroll bar) */
+  .tropes-panel { gap: 8px; }
+  .box { display: flex; flex-direction: column; min-height: 0; flex-shrink: 0;
+         border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .box.open { flex: 1 1 0; }
+  .box-head {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;
+    padding: 9px 12px; background: var(--panel); border: 0; border-radius: 8px; cursor: pointer;
+    font-weight: 600; font-size: 0.9rem; text-align: left;
+  }
+  .box.open .box-head { border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+  .box-head .hint { font-weight: 400; font-size: 0.8rem; color: var(--muted); }
+  .box:not(.open) .box-body { display: none; }
+  .box-body { padding: 8px 6px 8px 8px; }
+  .tick {
+    position: absolute; top: 12px; left: 14px; z-index: 1;
+    width: 18px; height: 18px; margin: 0; accent-color: var(--yes); cursor: pointer;
+  }
+  .tick:disabled { cursor: not-allowed; }
+  .trope .trope-head { padding-left: 42px; }
+  .scale-key b { color: var(--ink); }
 
   .evidence { border-top: 1px dashed var(--line); padding: 12px 14px 14px; font-size: 0.9rem; }
   .evidence p { margin: 0 0 10px; }
@@ -345,7 +385,15 @@
   </section>
 
   <aside class="tropes-panel" aria-label="Tropes">
-    <div class="trope-list" id="trope-list"></div>
+    <div class="scale-key" id="scale-key"></div>
+    <section class="box" id="box-rated">
+      <button class="box-head" id="head-rated" type="button" aria-expanded="false"></button>
+      <div class="trope-list box-body" id="list-rated"></div>
+    </section>
+    <section class="box open" id="box-pending">
+      <button class="box-head" id="head-pending" type="button" aria-expanded="true"></button>
+      <div class="trope-list box-body" id="list-pending"></div>
+    </section>
     <div class="footer">
       <div class="progress-row"><span id="progress-text"></span></div>
       <div class="bar"><span id="progress-bar"></span></div>
@@ -368,10 +416,26 @@ let dirty = false; // unsaved changes since the last download
 
 const state = { active: 0, submitted: false, answers: {}, expanded: {} };
 
+// 1-5 scale (user 2026-11-09). Evidence highlighting is required for 3, 4 and 5.
+const SCALE = [
+  [1, "Not present", "The trope is not present in the movie."],
+  [2, "Probably not", "The trope is probably not present in the movie."],
+  [3, "Not important", "The trope is present, but it is not important for the story."],
+  [4, "Largely important", "The trope is present and largely important for the story."],
+  [5, "Very important", "The trope is present and very important: the story is built on it."]
+];
+const NEEDS_EVIDENCE = 3;
+
 const appEl = document.getElementById("app");
 const startupEl = document.getElementById("startup");
 const synEl = document.getElementById("synopsis");
-const listEl = document.getElementById("trope-list");
+const ratedEl = document.getElementById("list-rated");
+const pendingEl = document.getElementById("list-pending");
+// A7 (a): only one box open at a time.
+let openBox = "pending";
+function setOpen(which) { openBox = which; render(true); }
+document.getElementById("head-rated").addEventListener("click", () => setOpen(openBox === "rated" ? "pending" : "rated"));
+document.getElementById("head-pending").addEventListener("click", () => setOpen(openBox === "pending" ? "rated" : "pending"));
 const bannerEl = document.getElementById("banner");
 const submitBtn = document.getElementById("submit-btn");
 
@@ -444,7 +508,7 @@ function start(data) {
   TEXT = CONFIG.synopsis.trim();
   state.active = 0;
   state.answers = Object.fromEntries(CONFIG.tropes.map(t => [t.id, {
-    answer: null, spans: [], firstAnsweredAt: null, updatedAt: null
+    score: null, spans: [], ticked: false, firstAnsweredAt: null, updatedAt: null
   }]));
   state.expanded = {};
   startupEl.hidden = true;
@@ -513,7 +577,7 @@ function closeSession() {
 function progressFile() {
   return {
     kind: PROGRESS_KIND,
-    version: 1,
+    version: 3,
     savedAt: new Date().toISOString(),
     study: { movieTitle: CONFIG.movieTitle, synopsis: CONFIG.synopsis, tropes: CONFIG.tropes },
     progress: { startedAt, sessions, active: state.active, answers: state.answers, expanded: state.expanded }
@@ -538,15 +602,20 @@ function resume(data) {
       alert("This progress file belongs to a different study (" + data.study.movieTitle + ").");
       return;
     }
-    const answered = Object.values(state.answers).some(a => a.answer);
+    const answered = Object.values(state.answers).some(a => a.score);
     if (answered && !confirm("Replace your current answers with the saved ones?")) return;
   } else {
     start(data.study);
     if (!CONFIG) return;
   }
   const p = data.progress;
+  if (data.version !== 3) {
+    alert("This progress file was saved by the older Yes / Maybe / No page. Open it there instead.");
+    return;
+  }
   CONFIG.tropes.forEach(t => { if (p.answers[t.id]) state.answers[t.id] = p.answers[t.id]; });
   state.expanded = p.expanded || {};
+  openBox = CONFIG.tropes.some(t => !state.answers[t.id].ticked) ? "pending" : "rated";
   state.active = Math.min(p.active || 0, CONFIG.tropes.length - 1);
   startedAt = p.startedAt || startedAt;
   sessions = [...(p.sessions || []), { start: new Date().toISOString(), end: null }];
@@ -579,12 +648,16 @@ function takeBreak() {
    ========================================================= */
 const activeTrope = () => CONFIG.tropes[state.active];
 const activeAnswer = () => activeTrope() ? state.answers[activeTrope().id] : null;
-// Highlighting is on for Yes (required) and Maybe (optional).
-const isHighlighting = () => ["yes", "maybe"].includes(activeAnswer()?.answer);
-const isDone = t => {
+// Highlighting is on (and required) for scores 3-5.
+const isHighlighting = () => (activeAnswer()?.score || 0) >= NEEDS_EVIDENCE;
+// complete = a score, plus evidence for 3-5 (A8a: only a complete trope can be ticked).
+const isComplete = t => {
   const a = state.answers[t.id];
-  return a.answer === "no" || a.answer === "maybe" || (a.answer === "yes" && a.spans.length > 0);
+  if (!a.score) return false;
+  return a.score < NEEDS_EVIDENCE || a.spans.length > 0;
 };
+// done = ticked into Rated and still complete (it can be edited inside Rated - A8b).
+const isDone = t => state.answers[t.id].ticked && isComplete(t);
 function touch(a) {
   const now = new Date().toISOString();
   if (!a.firstAnsweredAt) a.firstAnsweredAt = now;
@@ -660,22 +733,28 @@ synEl.addEventListener("click", e => {
 });
 
 /* ---------- answering ---------- */
-function setAnswer(i, val) {
+function setScore(i, val) {
   state.active = i;
   const a = state.answers[CONFIG.tropes[i].id];
-  a.answer = val;
-  if (val === "no") a.spans = [];
+  a.score = val;
+  if (val < NEEDS_EVIDENCE) a.spans = [];
   touch(a);
-  render();
-  if (val === "no") setTimeout(goNext, 250);
+  render(true);   // A8d: no auto-jump; the trope stays until it is ticked
 }
+// A8: tick a complete trope -> it moves to Rated (no unticking; edit it inside Rated instead).
+function tick(i) {
+  const t = CONFIG.tropes[i];
+  if (!isComplete(t)) return;
+  state.answers[t.id].ticked = true;
+  touch(state.answers[t.id]);
+  goNext();
+}
+// Next = first pending (unticked) trope in the original order.
 function goNext() {
-  const n = CONFIG.tropes.length;
-  for (let k = 1; k <= n; k++) {
-    const j = (state.active + k) % n;
-    if (!isDone(CONFIG.tropes[j])) { state.active = j; render(true); return; }
-  }
-  render();
+  const j = CONFIG.tropes.findIndex(t => !state.answers[t.id].ticked);
+  if (j >= 0) { state.active = j; openBox = "pending"; }
+  else openBox = "rated";   // nothing left in Pending: show the ranking
+  render(true);
 }
 
 /* =========================================================
@@ -698,31 +777,25 @@ function renderSynopsis() {
 
   if (isHighlighting()) {
     bannerEl.className = "mode-banner highlighting";
-    bannerEl.textContent = activeAnswer().answer === "maybe"
-      ? `Optional: select text that might show “${activeTrope().name}”. Click a highlight to remove it.`
-      : `Select text that shows “${activeTrope().name}”. Click a highlight to remove it.`;
+    bannerEl.textContent = `Select text that shows “${activeTrope().name}”. Click a highlight to remove it.`;
   } else {
     bannerEl.className = "mode-banner";
-    bannerEl.textContent = "Read the synopsis, then decide whether each trope on the right appears in this movie.";
+    bannerEl.textContent = "Read the synopsis, then rate each trope on the right from 5 (very important to the story) to 1 " +
+      "(not present).";
   }
 }
 
 function statusFor(a) {
   const n = a.spans.length;
   const hl = n ? `, ${n} highlight${n > 1 ? "s" : ""}` : "";
-  if (a.answer === "no") return ["no", "No"];
-  if (a.answer === "maybe") return ["maybe", "Maybe" + hl];
-  if (a.answer === "yes" && n) return ["yes", "Yes" + hl];
-  if (a.answer === "yes") return ["warn", "Needs evidence"];
-  return ["", "Not answered"];
+  if (!a.score) return ["", "Not rated"];
+  if (a.score >= NEEDS_EVIDENCE && !n) return ["warn", a.score + " · needs evidence"];
+  return ["s" + a.score, a.score + " · " + SCALE[a.score - 1][1] + hl];
 }
 
 function evidencePanel(a) {
-  const maybe = a.answer === "maybe";
   const p = el("div", "evidence");
-  p.append(el("p", null, maybe
-    ? "Optional: highlight the passage(s) that might show this trope."
-    : "Highlight the passage(s) in the synopsis that show this trope. You can add more than one."));
+  p.append(el("p", null, "Highlight the passage(s) in the synopsis that show this trope. You can add more than one."));
   if (a.spans.length) {
     const ul = el("ul");
     a.spans.forEach(([s, e], i) => {
@@ -749,23 +822,82 @@ function evidencePanel(a) {
   const next = el("button", "btn primary", "Next trope");
   next.type = "button";
   next.dataset.key = "next";
-  next.disabled = !maybe && a.spans.length === 0;
+  next.disabled = a.spans.length === 0;
   next.onclick = goNext;
   actions.append(add, next);
   p.append(actions);
   return p;
 }
 
+function scaleKey() {
+  const k = document.getElementById("scale-key");
+  k.textContent = "";
+  SCALE.slice().reverse().forEach(([n, , long], idx) => {   // shown 5 -> 1
+    if (idx) k.append(document.createElement("br"));
+    k.append(el("b", null, n + " "), long);
+  });
+}
+
 function renderTropes(scrollToActive) {
   const focusKey = document.activeElement?.dataset?.key;
-  listEl.textContent = "";
-  CONFIG.tropes.forEach((t, i) => {
+  scaleKey();
+  const idx = CONFIG.tropes.map((t, i) => i);
+  const ans = i => state.answers[CONFIG.tropes[i].id];
+  // Rated = ticked, sorted by score 5 -> 1 (order within a score = original order; user: not important)
+  const rated = idx.filter(i => ans(i).ticked).sort((x, y) => ans(y).score - ans(x).score || x - y);
+  const pending = idx.filter(i => !ans(i).ticked);
+
+  const hr = document.getElementById("head-rated");
+  hr.textContent = "";
+  hr.append(el("span", null, `${openBox === "rated" ? "▾" : "▸"} Rated (${rated.length})`),
+            el("span", "hint", "sorted by score - check and edit your ranking here"));
+  hr.setAttribute("aria-expanded", String(openBox === "rated"));
+  const hp = document.getElementById("head-pending");
+  hp.textContent = "";
+  hp.append(el("span", null, `${openBox === "pending" ? "▾" : "▸"} Pending (${pending.length})`),
+            el("span", "hint", "rate, add evidence for 3-5, then tick"));
+  hp.setAttribute("aria-expanded", String(openBox === "pending"));
+  document.getElementById("box-rated").classList.toggle("open", openBox === "rated");
+  document.getElementById("box-pending").classList.toggle("open", openBox === "pending");
+
+  ratedEl.textContent = "";
+  if (!rated.length) ratedEl.append(el("div", "block-empty", "Ticked tropes appear here, sorted by score."));
+  let lastScore = null;
+  rated.forEach(i => {
+    const sc = ans(i).score;
+    if (sc !== lastScore) { ratedEl.append(el("div", "group-label", sc + " · " + SCALE[sc - 1][1])); lastScore = sc; }
+    ratedEl.append(card(i));
+  });
+  pendingEl.textContent = "";
+  if (!pending.length) pendingEl.append(el("div", "block-empty", "Nothing pending. Check the ranking in Rated, then submit."));
+  pending.forEach(i => pendingEl.append(card(i)));
+
+  const openList = openBox === "rated" ? ratedEl : pendingEl;
+  if (focusKey) openList.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+  if (scrollToActive) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    openList.querySelector(".trope.active")?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+  }
+}
+
+function card(i) {
+    const t = CONFIG.tropes[i];
     const a = state.answers[t.id];
     const active = i === state.active;
-    const card = el("div", "trope" + (active ? " active" : ""));
-    const bar = el("div", "done-bar" + (isDone(t) ? " done" : ""));
+    const cardEl = el("div", "trope" + (active ? " active" : ""));
+    const bar = el("div", "done-bar" + (isComplete(t) ? " done" : ""));
     bar.setAttribute("aria-hidden", "true");
-    card.append(bar);
+    cardEl.append(bar);
+    const tk = el("input", "tick");
+    tk.type = "checkbox";
+    tk.checked = !!a.ticked;
+    tk.disabled = !!a.ticked || !isComplete(t);   // A8a: only when complete; A8b: no unticking
+    tk.dataset.key = "tick-" + i;
+    tk.title = a.ticked ? "In Rated (edit it here if needed)"
+      : isComplete(t) ? "Tick to move to Rated" : "Rate it first (and add evidence for 3-5)";
+    tk.setAttribute("aria-label", `Move “${t.name}” to Rated`);
+    tk.addEventListener("change", () => tick(i));
+    cardEl.append(tk);
 
     const head = el("button", "trope-head");
     head.type = "button";
@@ -776,7 +908,7 @@ function renderTropes(scrollToActive) {
     text.append(el("span", "trope-name", t.name), el("span", "trope-def", t.definition));
     const [cls, label] = statusFor(a);
     head.append(text, el("span", "status " + cls, label));
-    card.append(head);
+    cardEl.append(head);
 
     // Expandable definition
     const paras = paragraphsOf(t.expandedDefinition);
@@ -790,46 +922,41 @@ function renderTropes(scrollToActive) {
       more.setAttribute("aria-controls", bodyId);
       more.append(el("span", "chev", open ? "▾" : "▸"), el("span", null, open ? "Hide details" : "Show details"));
       more.onclick = () => { state.expanded[t.id] = !open; render(); };
-      card.append(more);
+      cardEl.append(more);
       if (open) {
         const body = el("div", "more-body");
         body.id = bodyId;
         paras.forEach(p => body.append(el("p", null, p)));
-        card.append(body);
+        cardEl.append(body);
       }
     }
 
     const choices = el("div", "choices");
     choices.setAttribute("role", "group");
-    choices.setAttribute("aria-label", `Does “${t.name}” appear in this movie?`);
-    [["yes", "Yes"], ["maybe", "Maybe"], ["no", "No"]].forEach(([v, lbl]) => {
-      const b = el("button", "choice " + v, lbl);
+    choices.setAttribute("aria-label", `Rate “${t.name}” from 1 to 5`);
+    SCALE.slice().reverse().forEach(([v, short, long]) => {   // buttons 5 -> 1, left to right
+      const b = el("button", "choice s" + v);
+      b.append(el("span", "num", String(v)), el("span", "cap", short));
       b.type = "button";
-      b.dataset.key = v + "-" + i;
-      b.setAttribute("aria-pressed", a.answer === v ? "true" : "false");
-      b.onclick = () => setAnswer(i, v);
+      b.title = long;
+      b.dataset.key = "s" + v + "-" + i;
+      b.setAttribute("aria-pressed", a.score === v ? "true" : "false");
+      b.onclick = () => setScore(i, v);
       choices.append(b);
     });
-    card.append(choices);
+    cardEl.append(choices);
 
-    if (active && (a.answer === "yes" || a.answer === "maybe")) card.append(evidencePanel(a));
-    listEl.append(card);
-  });
-
-  if (focusKey) listEl.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
-  if (scrollToActive) {
-    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    listEl.querySelector(".trope.active")?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
-  }
+    if (active && a.score >= NEEDS_EVIDENCE) cardEl.append(evidencePanel(a));
+    return cardEl;
 }
 
 function renderFooter() {
   const done = CONFIG.tropes.filter(isDone).length;
   const total = CONFIG.tropes.length;
-  document.getElementById("progress-text").textContent = `${done} of ${total} tropes done`;
+  document.getElementById("progress-text").textContent = `${done} of ${total} tropes rated and ticked`;
   document.getElementById("progress-bar").style.width = (done / total * 100) + "%";
   const ready = done === total;
-  submitBtn.textContent = ready ? "Submit" : `Take a break (${total - done} left)`;
+  submitBtn.textContent = ready ? "Submit (check your ranking first)" : `Take a break (${total - done} left)`;
   submitBtn.classList.toggle("ready", ready);
   submitBtn.disabled = state.submitted;
 }
@@ -846,6 +973,8 @@ function render(scrollToActive) {
 function buildPayload() {
   return {
     movieTitle: CONFIG.movieTitle,
+    pageVersion: 3,
+    scale: SCALE.map(([n, short, long]) => ({ score: n, label: short, meaning: long })),
     startedAt,
     submittedAt: new Date().toISOString(),
     sessions,
@@ -855,7 +984,8 @@ function buildPayload() {
       return {
         tropeId: t.id,
         tropeName: t.name,
-        answer: a.answer,
+        score: a.score,
+        ticked: !!a.ticked,
         expandedDefinitionOpened: !!state.expanded[t.id],
         evidence: a.spans.map(([s, e]) => ({ start: s, end: e, text: TEXT.slice(s, e) })),
         firstAnsweredAt: a.firstAnsweredAt,
@@ -872,6 +1002,7 @@ submitBtn.addEventListener("click", () => {
     if (confirm(msg)) takeBreak();
     return;
   }
+  if (!confirm("Before submitting, check the ranking in the Rated box. Submit now?")) return;
   closeSession();
   const name = fileName("annotation");
   download(buildPayload(), name);
