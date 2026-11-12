@@ -418,8 +418,8 @@ const state = { active: 0, submitted: false, answers: {}, expanded: {} };
 
 // 1-5 scale (user 2026-11-09). Evidence highlighting is required for 3, 4 and 5; optional for 2 (user 2026-11-10).
 const SCALE = [
-  [1, "Not present", "The trope is not present in the movie."],
-  [2, "Probably not", "The trope is probably not present in the movie."],
+  [1, "No evidence", "No evidence of the trope's presence in the synopsis."],
+  [2, "Very weak evidence", "Very weak evidence of the trope's presence in the synopsis."],
   [3, "Not important", "The trope is present, but it is not important for the story."],
   [4, "Largely important", "The trope is present and largely important for the story."],
   [5, "Very important", "The trope is present and very important: the story is built on it."]
@@ -784,7 +784,7 @@ function renderSynopsis() {
   } else {
     bannerEl.className = "mode-banner";
     bannerEl.textContent = "Read the synopsis, then rate each trope on the right from 5 (very important to the story) to 1 " +
-      "(not present).";
+      "(no evidence in the synopsis).";
   }
 }
 
